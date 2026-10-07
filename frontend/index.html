@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>resQnet · Command Dashboard</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='14' fill='%23ff4d4f'/><path d='M16 8v16M8 16h16' stroke='white' stroke-width='4'/></svg>">
+  <link rel="stylesheet" href="/static/vendor/leaflet.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <div class="logo"><span>res</span>Q<span>net</span></div>
+    <div class="tagline">AI Emergency Connectivity &amp; Responder Orchestration · edge node <b>MEC-BLR-KRM-01</b></div>
+  </div>
+  <div class="status">
+    <div class="stat"><label>Sim time</label><b id="clock">--:--:--</b></div>
+    <div class="stat"><label>Network load</label><b id="load">--</b><div class="bar"><i id="loadbar"></i></div></div>
+    <div class="stat"><label>Emergency mode</label><b id="emode" class="pill off">OFF</b></div>
+    <div class="stat"><label>Edge decision</label><b id="edgems">-- ms</b></div>
+    <div class="stat conn"><i id="wsdot"></i><span id="wsstate">connecting…</span></div>
+  </div>
+  <div class="controls">
+    <button id="btnDemo" class="primary" title="Run the full hero demo automatically">▶ Hero demo</button>
+    <button id="btnStepDemo" title="Hero demo, presenter clicks Next for each step">Step mode</button>
+    <button id="btnNext" class="hidden">Next ▸</button>
+    <button id="btnPause" title="Pause / resume">❚❚</button>
+    <select id="speed" title="Simulation speed">
+      <option value="1">1×</option><option value="2" selected>2×</option><option value="4">4×</option>
+      <option value="6">6×</option><option value="10">10×</option><option value="20">20×</option>
+    </select>
+    <button id="btnReset" title="Reset scenario">⟲</button>
+    <button id="btnResults">Results</button>
+  </div>
+</header>
+
+<main class="layout">
+  <section class="mapwrap">
+    <div id="map"></div>
+
+    <div id="story" class="story hidden">
+      <div class="story-steps" id="storySteps"></div>
+      <div class="story-title"><span class="ftag" id="storyF">F1</span><b id="storyTitle"></b></div>
+      <div class="story-caption" id="storyCaption"></div>
+    </div>
+
+    <div class="legend" id="legend">
+      <div><i class="lg amb"></i>Ambulance &amp; AI route</div>
+      <div><i class="lg corridor"></i>Warning corridor (next ~4 min)</div>
+      <div><i class="lg base"></i>Shortest-path baseline</div>
+      <div><i class="lg cellalert"></i>Cell alerted</div>
+      <div><i class="lg zone"></i>Disaster zone + buffer</div>
+      <div><i class="lg flood"></i>Flooded area</div>
+      <div><i class="lg doc"></i>Volunteer medic</div>
+      <div><i class="lg link"></i>Failover path</div>
+      <div class="muted" style="margin-top:4px">Right-click map / cell for actions</div>
+    </div>
+
+    <div class="kpis" id="kpis">
+      <div class="kpi"><label>Ambulance</label><b id="kAmb">standby</b><small id="kAmbS">&nbsp;</small></div>
+      <div class="kpi"><label>Route alerts</label><b id="kAlerts">0</b><small id="kAlertsS">&nbsp;</small></div>
+      <div class="kpi"><label>Medic</label><b id="kMedic">—</b><small id="kMedicS">&nbsp;</small></div>
+      <div class="kpi"><label>Emergency calls</label><b id="kCalls">0</b><small id="kCallsS">&nbsp;</small></div>
+      <div class="kpi"><label>Message delivery</label><b id="kDeliv">—</b><small id="kDelivS">&nbsp;</small></div>
+      <div class="kpi"><label>Edge vs cloud</label><b id="kEdge">—</b><small id="kEdgeS">&nbsp;</small></div>
+    </div>
+
+    <div class="phones" id="phones">
+      <div class="phones-head"><b>Field devices</b><button id="phonesToggle" title="Show/hide">–</button></div>
+      <div class="phones-body">
+        <div class="phone" id="phAmb">
+          <div class="ph-title">🚑 Responder · SMS</div>
+          <select id="smsFrom">
+            <option value="+91 98450 11207">AMB-07 · Ravi Kumar (verified)</option>
+            <option value="+91 98450 11203">AMB-03 · SIM swapped 47 min ago</option>
+            <option value="+91 98450 33121">POL-21 · police (no route permission)</option>
+            <option value="+91 98450 22102">FIRE-02 · fire station officer</option>
+            <option value="+91 90000 12345">Unregistered number</option>
+          </select>
+          <label class="chk"><input type="checkbox" id="smsSpoof"> spoofed SIM (number ≠ network identity)</label>
+          <div class="ph-row"><input id="smsText" value="CLEAR ROUTE INC-2041"><button id="smsSend">Send</button></div>
+          <div class="ph-row quick"><button data-sms="CLEAR ROUTE">CLEAR ROUTE</button><button data-sms="MEDIC">MEDIC</button></div>
+          <div class="bubble" id="smsReply">Commands: CLEAR ROUTE INC-#### · MEDIC INC-####</div>
+        </div>
+        <div class="phone" id="phDoc">
+          <div class="ph-title">🩺 Volunteer medic · IVR call</div>
+          <div id="ivrIdle" class="muted">No incoming call. Doctors are called automatically when a medic is requested.</div>
+          <div id="ivrRing" class="hidden">
+            <div class="ring"><span class="pulse"></span><b id="ivrName"></b></div>
+            <div class="bubble ivr" id="ivrText"></div>
+            <div class="ph-row keys"><button id="ivr1" class="accept">1 · Accept</button><button id="ivr2" class="decline">2 · Decline</button></div>
+            <small id="ivrAuto" class="muted"></small>
+          </div>
+          <div id="ivrDone" class="hidden bubble ok"></div>
+        </div>
+        <div class="phone" id="phCit">
+          <div class="ph-title">📱 Citizen · alerts &amp; calls</div>
+          <div class="cbs hidden" id="cbs"><b>⚠ Emergency alert</b><span id="cbsText"></span></div>
+          <div class="ph-row"><select id="callNum"><option value="+91 99887 76655">Call a friend</option><option value="112">Dial 112</option></select></div>
+          <div class="ph-row"><input id="callReply" placeholder="Reply to prompt, any language…" value="ghar mein paani bhar gaya, bachao"><button id="callSend">Call</button></div>
+          <div class="ph-row quick">
+            <button data-reply="my father collapsed please help">EN</button>
+            <button data-reply="मदद करो पानी घर में घुस गया">हिं</button>
+            <button data-reply="ಸಹಾಯ ಮಾಡಿ ಮನೆಗೆ ನೀರು ನುಗ್ಗಿದೆ">ಕನ್ನ</button>
+            <button data-reply="all safe here just calling office">normal</button>
+          </div>
+          <div class="bubble" id="callRes">Calls from inside a declared zone get a short prompt; the AI decides priority.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <aside class="panel">
+    <nav class="tabs" id="tabs">
+      <button data-tab="feed" class="active">Live feed</button>
+      <button data-tab="explain">AI decisions</button>
+      <button data-tab="network">Network</button>
+      <button data-tab="models">AI models</button>
+      <button data-tab="security">Security</button>
+    </nav>
+
+    <div class="tab active" id="tab-feed">
+      <div class="filters" id="feedFilters">
+        <button data-f="all" class="on">All</button><button data-f="F1">F1 ID</button><button data-f="F2">F2 Route</button>
+        <button data-f="F3">F3 Medic</button><button data-f="F4">F4 Calls</button><button data-f="F5">F5 Network</button>
+        <button data-f="F6">F6 Edge</button>
+      </div>
+      <div class="feed" id="feed"></div>
+    </div>
+
+    <div class="tab" id="tab-explain">
+      <div class="overrides">
+        <b>Human override</b>
+        <button data-ov="skip_candidate">Skip ringing medic</button>
+        <button data-ov="stop_alerts">Stop route alerts</button>
+        <button data-ov="lift_zone">Lift zone</button>
+      </div>
+      <div id="decisions"></div>
+    </div>
+
+    <div class="tab" id="tab-network">
+      <h4>Connectivity orchestration <span class="ftag">F5</span></h4>
+      <div class="cards2">
+        <div class="mini"><label>Delivered (resQnet)</label><b id="nDel">—</b></div>
+        <div class="mini"><label>No-resQnet baseline</label><b id="nBase">—</b></div>
+        <div class="mini"><label>Failover success</label><b id="nFail">—</b></div>
+        <div class="mini"><label>Messages</label><b id="nSent">0</b></div>
+      </div>
+      <div id="paths" class="hbars"></div>
+      <h4>Emergency slice &amp; call priority <span class="ftag">F4</span></h4>
+      <div id="slice"></div>
+      <table class="calls"><thead><tr><th>Time</th><th>Call</th><th>Where</th><th>Decision</th><th>Why</th></tr></thead><tbody id="callFeed"></tbody></table>
+      <h4 id="latH">Edge vs cloud decision latency <span class="ftag">F6</span></h4>
+      <div class="cards2">
+        <div class="mini"><label>Edge (MEC)</label><b id="lEdge">—</b></div>
+        <div class="mini"><label>Cloud-only</label><b id="lCloud">—</b></div>
+      </div>
+      <svg id="latChart" class="latchart" viewBox="0 0 400 120" preserveAspectRatio="none"></svg>
+      <div class="row"><button id="btnCloud">Cut cloud link</button><small class="muted">Edge keeps deciding locally if the cloud is unreachable.</small></div>
+      <h4>Cell sites</h4>
+      <div id="cellsList" class="cells"></div>
+    </div>
+
+    <div class="tab" id="tab-models">
+      <p class="muted">Every module ships with a rule baseline; the AI model is measured against it on held-out simulated data
+        (trained at start-up in <b id="trainS">–</b> s, pure Python on the edge node).</p>
+      <div id="models"></div>
+      <h4>Try the multilingual emergency classifier <span class="ftag">F4</span></h4>
+      <div class="row"><input id="clfText" value="neeru jaasti aagtide, ambulance beku"><button id="clfBtn">Classify</button></div>
+      <div id="clfOut" class="bubble"></div>
+    </div>
+
+    <div class="tab" id="tab-security">
+      <h4>Verified responder registry <span class="ftag">F1</span></h4>
+      <table class="reg"><thead><tr><th>ID</th><th>Role</th><th>Number</th><th>SIM swap</th><th></th></tr></thead><tbody id="registry"></tbody></table>
+      <h4>Tamper-evident audit log <span id="chain" class="pill">–</span></h4>
+      <div id="audit" class="audit"></div>
+      <h4>CAMARA API calls <small class="muted" id="camMode"></small></h4>
+      <div id="apis" class="apis"></div>
+    </div>
+  </aside>
+</main>
+
+<div class="modal hidden" id="results">
+  <div class="modal-card">
+    <div class="modal-head">
+      <div><h2>Results — same scenario, with vs without resQnet</h2><small id="resNote" class="muted"></small></div>
+      <button id="resClose">✕</button>
+    </div>
+    <table class="results"><thead><tr><th>Metric</th><th>What it measures</th><th>No resQnet</th><th>resQnet</th><th>Target</th><th></th></tr></thead>
+      <tbody id="resBody"></tbody></table>
+  </div>
+</div>
+
+<div class="ctx hidden" id="ctxMenu"></div>
+
+<script src="/static/vendor/leaflet.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>
