@@ -14,6 +14,9 @@ request/response shapes as the real specs, so it can later be pointed at an oper
 
 ![features](https://img.shields.io/badge/features-F1–F6-ff4d4f) ![python](https://img.shields.io/badge/python-3.10%2B-blue) ![tests](https://img.shields.io/badge/tests-16%20passing-2ecc71)
 
+![resQnet command dashboard at start-up: Koramangala street map with cell sites, volunteer medics and the flooded Ejipura area](docs/screenshots/dashboard.png)
+*The command dashboard at start-up: real Koramangala / HSR Layout streets, 68 cell sites (◆), volunteer medics (green), the flooded area in Ejipura, the field-devices panel on the left and the live feed on the right.*
+
 ---
 
 ## Quick start (about 1 minute)
@@ -54,6 +57,26 @@ data and Leaflet is vendored, so it works even on poor venue Wi-Fi.
 **Presenter controls:** `Step mode` lets you click **Next ▸** (or press → / `n`) for each step.
 `Space` pauses, `r` opens results, and the speed selector changes simulation speed.
 The dashboard switches to the relevant panel at each step on its own.
+
+### The demo in screenshots
+
+**Step 1 · Citizen dials 112.** The incident INC-2041 is created (severity 4/5, 7 people, 2 injured). The **Network**
+tab shows the connectivity orchestration (F5), the 112 call marked *PRIORITY*, and edge vs cloud decision latency (F6).
+
+![Step 1: a 112 call creates incident INC-2041; the Network tab shows message delivery, call priority and edge vs cloud latency](docs/screenshots/step1-112-call-network-tab.webp)
+
+**Step 3b · Verified ambulance requests route clearance.** AMB-07 passes Number Verification, SIM Swap and role
+checks. The AI route (blue) and the moving warning corridor (orange) appear, and only the cells ahead are alerted.
+The **AI decisions** tab shows why each cell got targeted SMS + voice instead of Cell Broadcast, with the
+**human override** buttons on top. Disaster zone and buffer are drawn in red; emergency mode is *ON · slice*.
+
+![Step 3b: verified ambulance AMB-07 with the AI route, the moving warning corridor over alerted cells, and the AI decisions tab](docs/screenshots/step3b-route-clearance.webp)
+
+**Step 4 · Nearest suitable doctor is matched.** Dr. Arjun Mehta (0.8 km) declines, the system escalates, and
+Dr. Priya Nair (1.4 km) accepts by pressing 1 — picked in 28 s. The citizen phone panel shows the route alert
+a driver receives, while the corridor keeps moving with the ambulance.
+
+![Step 4: Dr. Priya Nair accepts after the first doctor declines; the corridor moves ahead of the ambulance](docs/screenshots/step4-medic-matched.webp)
 
 ### Typical results from one run (simulated data)
 
@@ -167,6 +190,7 @@ resQnet/
 │   └── data/roads.json      Koramangala / HSR Layout street graph from OpenStreetMap
 ├── frontend/                command dashboard (Leaflet, vanilla JS, vendored for offline use)
 ├── tests/                   16 tests: per feature, API, and full hero demo vs targets
+├── docs/screenshots/        dashboard screenshots used in this README
 └── tools/                   build_roads.py (refresh OSM data), headless_demo.py
 ```
 
